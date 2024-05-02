@@ -1,0 +1,11 @@
+Contenido actualizado
+Wed May 01 21:30:07 CDT 2024
+
+User-Agent: PostmanRuntime/7.36.3
+Accept: */*
+Cache-Control: no-cache
+Postman-Token: 176bf9ed-8c00-4dc8-b6c0-b8251f2f933c
+Host: localhost:1234
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive
+Content-Length: 0
