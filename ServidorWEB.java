@@ -26,7 +26,7 @@ public class ServidorWEB{
 					bos=new BufferedOutputStream(socket.getOutputStream());
 					pw=new PrintWriter(new OutputStreamWriter(bos));
 					String line=br.readLine();
-					//System.out.println(line);
+					System.out.println(line);
 					if(line==null){
 						pw.print("<html><head><title>Servidor WEB");
 						pw.print("</title><body bgcolor=\"#AACCFF\"<br>Linea Vacia</br>");
@@ -50,6 +50,7 @@ public class ServidorWEB{
                             System.out.println(FileName != null ? FileName : "");
                         }
                         else{
+                            /*Tokenizacion de la linea hasta encontrar ? */
                             StringTokenizer tokens=new StringTokenizer(line,"?");
                             String req_a=tokens.nextToken();
                             String req=tokens.nextToken();
@@ -102,16 +103,19 @@ public class ServidorWEB{
 					e.printStackTrace();
 				}
 			}
+
+            
 			
 			public void getArch(String line){
 				int i;
 				int f;
 				if(line.toUpperCase().startsWith("GET")){
 					i=line.indexOf("/");
-					f=line.indexOf(" ",i);
-					FileName=line.substring(i+1,f);
+					f=line.indexOf(" ",i);/*Hasta el final de la linea, desde indexOf "/" */
+					FileName=line.substring(i+1,f);/*Encuentra la subcadena en el rango establecido */
 				}
 			}
+
 			public void SendA(String fileName,Socket sc){
 				//System.out.println(fileName);
 				int fSize = 0;
@@ -136,53 +140,77 @@ public class ServidorWEB{
 				}
 				
 			}
-			public void SendA(String arg) {
-				try{
-					int b_leidos=0;
-					BufferedInputStream bis2=new BufferedInputStream(new FileInputStream(arg));
-					byte[] buf=new byte[1024];
-					int tam_bloque=0;
-					if(bis2.available()>=1024){
-						tam_bloque=1024;
-					}
-					else{
-						bis2.available();
-					}
-		
-				int tam_archivo=bis2.available();
-				/***********************************************/
-				String sb = "";
-				sb = sb+"HTTP/1.0 200 ok\n";
-			    sb = sb +"Server: Axel Server/1.0 \n";
-				sb = sb +"Date: " + new Date()+" \n";
-				sb = sb +"Content-Type: text/html \n";
-				sb = sb +"Content-Length: "+tam_archivo+" \n";
-				sb = sb +"\n";
-				bos.write(sb.getBytes());
-				bos.flush();
-			
-				while((b_leidos=bis2.read(buf,0,buf.length))!=-1){
-					bos.write(buf,0,b_leidos);
-				}
-				bos.flush();
-				bis2.close();
-				
-				}
-				catch(Exception e){
-					System.out.println(e.getMessage());
-				}
-				
-			}
+
+            
+			public void SendA(String fileName) {
+                try {
+                    int b_leidos = 0;
+                    BufferedInputStream bis2 = new BufferedInputStream(new FileInputStream(fileName));
+                    byte[] buf = new byte[1024];
+                    int tam_archivo = bis2.available();
+            
+                    // Establecer el tipo de contenido basado en la extensión del archivo
+                    String contentType = getContentType(fileName);
+            
+                    // Construir la respuesta HTTP con el tipo de contenido apropiado
+                    String response = "HTTP/1.0 200 OK\n" +
+                            "Server: Max Server/1.0\n" +
+                            "Date: " + new Date() + "\n" +
+                            "Content-Type: " + contentType + "\n" +
+                            "Content-Length: " + tam_archivo + "\n\n";
+            
+                    // Enviar la cabecera de la respuesta
+                    bos.write(response.getBytes());
+                    bos.flush();
+            
+                    // Enviar el contenido del archivo
+                    while ((b_leidos = bis2.read(buf, 0, buf.length)) != -1) {
+                        bos.write(buf, 0, b_leidos);
+                    }
+                    bos.flush();
+                    bis2.close();
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+
+            private String getContentType(String fileName) {
+                // Mapear las extensiones de archivo a los tipos de contenido MIME correspondientes
+                Map<String, String> mimeTypes = new HashMap<>();
+                mimeTypes.put("html", "text/html");
+                mimeTypes.put("htm", "text/html");
+                mimeTypes.put("txt", "text/plain");
+                mimeTypes.put("jpg", "image/jpeg");
+                mimeTypes.put("jpeg", "image/jpeg");
+                mimeTypes.put("gif", "image/gif");
+                mimeTypes.put("png", "image/png");
+    
+                // Obtener la extensión del archivo
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex >= 0) {
+                    String extension = fileName.substring(dotIndex + 1).toLowerCase();
+                    // Buscar el tipo de contenido MIME correspondiente
+                    String contentType = mimeTypes.get(extension);
+                    if (contentType != null) {
+                        return contentType;
+                    }
+                }
+                // Por defecto, devolver "application/octet-stream" para tipos de contenido desconocidos
+                return "application/octet-stream";
+            }
+            
 
             private void handlePostRequest(String line) throws IOException {
                 // Leer la solicitud POST para obtener los datos del formulario
                 StringBuilder requestBody = new StringBuilder();
                 int contentLength = 0;
                 while ((line = br.readLine()) != null && line.length() != 0) {
+                    /*Verifica que un parte del cuerpo contenga content-length */
                     if (line.startsWith("Content-Length:")) {
                         contentLength = Integer.parseInt(line.substring("Content-Length:".length()).trim());
                     }
                 }
+                /*Si hay  */
                 if (contentLength > 0) {
                     char[] buffer = new char[contentLength];
                     br.read(buffer, 0, contentLength);
@@ -208,7 +236,10 @@ public class ServidorWEB{
                 pw.write(response);
                 pw.flush();
             }
-        
+        /*Mapea los parametros del body name=***&password=*****
+         * => name(key): ****(value),
+         *     
+        */
             private Map<String, String> parseFormData(String postData) {
                 Map<String, String> formData = new HashMap<>();
                 String[] params = postData.split("&");
@@ -222,7 +253,7 @@ public class ServidorWEB{
             }
 
             private void handlePutRequest(String line) throws IOException {
-                /*String[] parts = line.split(" ");
+                String[] parts = line.split(" ");
                 String fileName = parts[1].substring(1);
             
                 File file = new File(fileName);
@@ -258,7 +289,7 @@ public class ServidorWEB{
                             "<html><body><h1>Archivo creado exitosamente!</h1></body></html>";
                 }
                 pw.write(response);
-                pw.flush();*/
+                pw.flush();
             }
             
             private void handleHeadRequest(String line) throws IOException {
