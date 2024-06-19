@@ -5,27 +5,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
 
 public class SWEBNOBloqueante {
-    public static final int PUERTO = 9876;
+    public static final int PUERTO = 5000;
     private ServerSocketChannel serverSocketChannel;
     private Selector selector;
-    private ExecutorService threadPool;
 
     public static void main(String[] args) {
         new SWEBNOBloqueante().start();
     }
 
     public void start() {
-        threadPool = Executors.newFixedThreadPool(10); // Crear una piscina de hilos con 10 hilos.
-        
         try {
             // Abrir un canal de servidor y un selector
             serverSocketChannel = ServerSocketChannel.open();// abrimos un canal de servidor de socket
             serverSocketChannel.bind(new InetSocketAddress(PUERTO)); // asociamos el canal de servidor a la ip y puerto.
             serverSocketChannel.configureBlocking(false); // configuramos el canal para que sea no bloqueante
-            selector = Selector.open(); //creamos un selector que pueda monitorear múltiples canales para eventos e/s
+            selector = Selector.open(); //creamos un selector que pueda monitorear los canales para eventos e/s
 
             // Registra el canal del servidor con el selector para aceptar conexiones.
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
@@ -33,7 +29,7 @@ public class SWEBNOBloqueante {
             while (true) {
                 selector.select(); // bloquea la ejecución hasta que al menos uno de los canales registrados esté listo para una operación de e/s.
 
-                // Iterar sobre las llaves con canales listos
+                // crea un iterador que permite recorrer todas las claves de selección que están actualmente listas para operaciones de E/S en el selector.
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
                 while (iterator.hasNext()) {
                     SelectionKey key = iterator.next();
@@ -44,34 +40,16 @@ public class SWEBNOBloqueante {
                         handleAccept(key);
 
                     } else if (key.isReadable()) {
-                        key.interestOps(key.interestOps() & ~SelectionKey.OP_READ); // deshabilita temporalmente la operación de lectura (OP_READ) en el selector para evitar que se notifique múltiples veces mientras se está procesando la lectura.
-
-                        // Enviar la tarea de lectura a la piscina de hilos.
-                        threadPool.submit(() -> {
-                            try {
-                                handleRead(key); // operación de lectura sobre el canal asociado a key.
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            } finally {
-                                // verifica si el canal (key.channel()) sigue abierto. Si es así, se vuelve a habilitar la operación de lectura (OP_READ) para notificar cuando el canal esté listo para leer más datos.
-
-                                if (key.channel().isOpen()) {
-                                    key.interestOps(key.interestOps() | SelectionKey.OP_READ); // Vuelve a habilitar el OP_READ.
-                                }
-                            }
-                        });
+                        handleRead(key); // operación de lectura sobre el canal asociado a key.
                     }
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            if (threadPool != null) {
-                threadPool.shutdown();
-            }
         }
     }
 
+    // Acepta una nueva conexión y la configura en modo no bloqueante, registrándola con el selector para operaciones de lectura.
     private void handleAccept(SelectionKey key) throws IOException {
         ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel(); // devuelve el canal asociado con la SelectionKey
         SocketChannel socketChannel = serverChannel.accept(); //  espera y acepta una nueva conexión entrante, devolviendo un SocketChannel que representa esta nueva conexión
@@ -79,6 +57,8 @@ public class SWEBNOBloqueante {
         socketChannel.register(selector, SelectionKey.OP_READ); //  registra el SocketChannel con el Selector para monitorear operaciones de e/s
     }
 
+    // Lee los datos del canal asociado. Si el cliente ha cerrado la conexión, cierra el canal. Si hay datos, los procesa y maneja la solicitud GET 
+    // lee la solicitud http
     private void handleRead(SelectionKey key) throws IOException {
         // leemos la peticion
         SocketChannel socketChannel = (SocketChannel) key.channel(); // obtenemos el canal asociado con la SelectionKey actual

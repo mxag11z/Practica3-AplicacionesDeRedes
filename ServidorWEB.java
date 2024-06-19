@@ -406,7 +406,7 @@ public class ServidorWEB {
     public ServidorWEB() throws Exception {
         System.out.println("Iniciando Servidor.......");
         this.ss = new ServerSocket(PUERTO);
-        this.pool = Executors.newFixedThreadPool(2); // Cambia el número según tus necesidades
+        this.pool = Executors.newFixedThreadPool(2); 
         System.out.println("Servidor iniciado:---OK");
         System.out.println("Esperando por Cliente....");
         while (true) {
